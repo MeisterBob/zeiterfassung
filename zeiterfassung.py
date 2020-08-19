@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 import sys
@@ -41,7 +41,7 @@ def main(db=None):
                            help="setzt Arbeitsende, falls ohne Argument:"
                                 " nutze jetzt")
 
-    day_group.add_argument('-p', '--pause', type=int, default='30',
+    day_group.add_argument('-p', '--pause', type=int, default=False,
                            help="Pausenzeit in Minuten")
 
     day_group.add_argument('-c', '--comment', type=str, nargs='*', default=None,
@@ -50,12 +50,15 @@ def main(db=None):
     day_group.add_argument('--multi_day', type=str, default=False,
                            help="ermöglicht mehrere Einträge pro Tag")
 
-    parser.add_argument('-w', '--work_time', type=str, default='7:42',
+    parser.add_argument('-w', '--work_time', type=str, default='8:00',
                         help="Arbeitspensum pro Tag; Format H:MM")
 
-    parser.add_argument('--db_path', type=str, default=os.getcwd(),
+    parser.add_argument('-r', '--round', type=int, default='1',
+                        help="Arbeitsbeginn/-ende auf ROUND Minuten runden")
+
+    parser.add_argument('--db_path', type=str, default=os.path.dirname(__file__)+"/",
                         help="Ort, an dem die In- und Output Files liegen")
-    parser.add_argument('--user', type=str, default="TinoMichael",
+    parser.add_argument('--user', type=str, default="GJ",
                         help="zu bearbeitender Mitarbeiter")
     parser.add_argument('--export', nargs='*', default=[],
                         help="schreibt erfasste Zeiten in gegebenen Formaten;\n"
@@ -77,6 +80,7 @@ def main(db=None):
     out_of_office_group.add_argument('-z', '--zeitausgleich', action='store_true',
                                      default=None, help="keine Arbeitszeit, Saldo wird "
                                      "um reguläre Zeit veringert")
+
     args = parser.parse_args()
 
     if args.urlaub:
@@ -106,10 +110,10 @@ def main(db=None):
     week = datetime.date(year, month, day).isocalendar()[1]
 
     hours, minutes = (int(t) for t in str(now.time()).split(':')[:-1])
-    minutes = minutes - minutes % 15  # rounding minutes to last quarter
+    minutes = minutes - minutes % args.round  # rounding minutes to last quarter
     round_down = datetime.datetime(year, month, day, hours, minutes, 00)
-    round_up = datetime.datetime(year, month, day, hours, minutes, 00) + \
-        datetime.timedelta(minutes=15)
+    round_up = datetime.datetime(year, month, day, hours, minutes, 00) \
+        + datetime.timedelta(minutes=args.round)
 
     # get the desired day and create its data base entry if not there yet
     this_day = get_day_from_db(db, year, month, week, day)
@@ -118,7 +122,7 @@ def main(db=None):
         if args.multi_day:
             this_day = this_day[args.multi_day]
         this_day.update(dict((k, {}) for k in this_day))
-    elif not (args.start is False and args.end is False and args.comment is None):
+    elif not (args.start is False and args.end is False and args.pause is False and args.comment is None):
         this_day = update_day(this_day, args, round_up, round_down)
 
     # recursively remove empty dictionary leaves
@@ -169,19 +173,18 @@ def get_day_from_db(db, year, month, week, day):
 
 def update_day(this_day, args, round_up, round_down):
     if args.multi_day:
-        # if current day was previously a one-block day, reset the relevant
-        # entries (they will be removed later by `clean_db`)
-        # Also set the entry node for the multi-day
-        for a in ["start", "end", "pause", "comment", args.multi_day]:
-            this_day[a] = {}
-        this_day = this_day[args.multi_day]
-
+       # if current day was previously a one-block day, reset the relevant
+       # entries (they will be removed later by `clean_db`)
+       # Also set the entry node for the multi-day
+       for a in ["start", "end", "pause", "comment", args.multi_day]:
+           this_day[a] = {}
+       this_day = this_day[args.multi_day]
     else:
-        # if `this_day` was previously declared multi-day,
-        # reset the multi-day fields (they will be removed later by `clean_db`)
-        for a, b in this_day.items():
-            if type(b) == dict:
-                this_day[a] = {}
+       # if `this_day` was previously declared multi-day,
+       # reset the multi-day fields (they will be removed later by `clean_db`)
+       for a, b in this_day.items():
+           if type(b) == dict:
+               this_day[a] = {}
 
     # populate the desired day with the given information
     # The logic for `start` (and `end`) is as follows:
@@ -192,10 +195,22 @@ def update_day(this_day, args, round_up, round_down):
     # - If `start` is used in the CL but without any parameter, `args.start` will
     #   be `None` and the or-statement will use the current time
     if args.start is not False:
-        this_day["start"] = args.start or format_time(round_down.time())
+        if "start" in this_day:
+            if args.start is None:
+                print("neue Startzeit muss explizit angegeben werden --start HH:MM")
+            else:
+                this_day["start"] = args.start or format_time(round_down.time())
+        else:
+            this_day["start"] = args.start or format_time(round_down.time())
     if args.end is not False:
-        this_day["end"] = args.end or format_time(round_up.time())
-    if not (args.urlaub or args.zeitausgleich):
+        if "end" in this_day:
+            if args.end is None and round_up.time() < datetime.datetime.strptime(this_day["end"], '%H:%M').time():
+                print("neue Endzeit muss explizit angegeben werden --end HH:MM")
+            else:
+                this_day["end"] = args.end or format_time(round_up.time())
+        else:
+            this_day["end"] = args.end or format_time(round_up.time())
+    if args.pause is not False:
         this_day["pause"] = args.pause
 
     if args.comment is not None:
@@ -275,25 +290,27 @@ def calculate_saldos(db, work_time="7:42"):
                         # so, go on with the single-part approach
                         day_balance = calc_balance(day)
 
-                    day["Arbeitszeit"] = format_timedelta(day_balance)
+                    if "end" in day:
+                        day["Arbeitszeit"] = format_timedelta(day_balance)
 
                     # check if we are on a working day
                     # TODO check for legal holidays?
-                    if datetime.datetime(y, m, d).weekday() < 5:
-                        if "comment" not in day or "urlaub" not in day["comment"].lower():
-                            day_balance -= datetime.timedelta(hours=work_hours,
-                                                              minutes=work_minutes)
-                    else:
-                        # we are on a weekend day; make this clear in the comment
-                        # and set the expected work time to zero
-                        day_balance = calc_balance(day)
-                        try:
-                            if "wochenende" not in day["comment"].lower():
-                                day["comment"] = "Wochenende; " + day["comment"]
-                        except KeyError:
-                            day["comment"] = "Wochenende"
+                    if "end" in day:
+                        if datetime.datetime(y, m, d).weekday() < 5:
+                            if "comment" not in day or "urlaub" not in day["comment"].lower():
+                                day_balance -= datetime.timedelta(hours=work_hours, minutes=work_minutes)
+                        else:
+                            # we are on a weekend day; make this clear in the comment
+                            # and set the expected work time to zero
+                            day_balance = calc_balance(day)
+                            try:
+                                if "wochenende" not in day["comment"].lower():
+                                    day["comment"] = "Wochenende; " + day["comment"]
+                            except KeyError:
+                                day["comment"] = "Wochenende"
 
-                    day["Tagessaldo"] = format_timedelta(day_balance)
+                    if "end" in day:
+                        day["Tagessaldo"] = format_timedelta(day_balance)
                     week_balance += day_balance
 
                     # if there is a comment, move it to the back of the day-dict
