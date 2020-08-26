@@ -41,7 +41,7 @@ def main(db=None):
                            help="setzt Arbeitsende, falls ohne Argument:"
                                 " nutze jetzt")
 
-    day_group.add_argument('-p', '--pause', type=int, default=False,
+    day_group.add_argument('-p', '--pause', type=int, nargs='?', default=False,
                            help="Pausenzeit in Minuten")
 
     day_group.add_argument('-c', '--comment', type=str, nargs='*', default=None,
@@ -213,7 +213,12 @@ def update_day(this_day, args, round_up, round_down):
         else:
             this_day["end"] = args.end or format_time(round_up.time())
     if args.pause is not False:
-        this_day["pause"] = args.pause
+        if args.pause is None:
+            start = datetime.datetime.now()
+            input("[Enter] drücken um die Pause zu beenden")
+            this_day["pause"] = int((datetime.datetime.now() - start).total_seconds()/60)
+        else:
+            this_day["pause"] = args.pause
 
     if args.comment is not None:
         # if `comment` flag is set but argument empty, try to remove present comment
