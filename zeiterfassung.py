@@ -69,6 +69,7 @@ def main(db=None):
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help="prints the all stored days for the user instead of only"
                              " current month")
+    parser.add_argument('-q', '--quiet', action='store_true', default=False, help="nur Fehler ausgeben")
     parser.add_argument('--expand', action='store_false', default=None,
                         help="expandiert die anderweitig kompakte Ausgabe der erfassten"
                              " Zeiten")
@@ -134,8 +135,9 @@ def main(db=None):
     # calculate over-time saldos on a daily, weekly and monthly basis
     calculate_saldos(db, work_time=args.work_time)
 
-    print(f"\nerfasste Zeiten für {args.user}:\n", db_file)
-    print(yaml.dump(db if args.verbose else
+    if not args.quiet:
+        print(f"\nerfasste Zeiten für {args.user}:\n", db_file)
+        print(yaml.dump(db if args.verbose else
                     {round_down.strftime("%B"): (db[year][month] if
                      (year in db and month in db[year]) else
                      "no entries for this month")},

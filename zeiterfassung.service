@@ -1,0 +1,12 @@
+[Unit]
+Description=Zeiterfassung - ein-/ausstempeln beim Systemstart/-stop 
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/bin/python3 /home/gerhard/workspace/zeiterfassung/zeiterfassung.py --start --round 4 --quiet
+ExecStop=/usr/bin/python3 /home/gerhard/workspace/zeiterfassung/zeiterfassung.py --end --round 4 --quiet
+
+[Install]
+WantedBy=multi-user.target
+
