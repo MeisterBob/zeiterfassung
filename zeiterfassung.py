@@ -56,7 +56,7 @@ def main(db=None):
     parser.add_argument('-r', '--round', type=int, default='1',
                         help="Arbeitsbeginn/-ende auf ROUND Minuten runden")
 
-    parser.add_argument('--db_path', type=str, default=os.path.dirname(__file__)+"/",
+    parser.add_argument('--db_path', type=str, default=os.path.dirname(__file__)+"/data/",
                         help="Ort, an dem die In- und Output Files liegen")
     parser.add_argument('--user', type=str, default="GJ",
                         help="zu bearbeitender Mitarbeiter")
