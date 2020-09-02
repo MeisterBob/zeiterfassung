@@ -278,6 +278,7 @@ def calculate_saldos(db, work_time="8:00"):
     # calculate over-time saldos on a daily, weekly and monthly basis
 
     work_hours, work_minutes = (int(t) for t in work_time.split(':'))
+    today_year, today_month, today_day = (int(t) for t in str(datetime.datetime.now().date()).split('-'))
 
     for y, year in db.items():
         year_balance = datetime.timedelta()
@@ -286,20 +287,22 @@ def calculate_saldos(db, work_time="8:00"):
             for w, week in month.items():
                 week_balance = datetime.timedelta()
                 for d, day in week.items():
-                    try:
-                        # assume this is a multi-part day
-                        day_balance = datetime.timedelta()
-                        for part in day.values():
-                            day_balance += calc_balance(part)
+                    if ("end" in day) or ([d, m, y] == [today_day, today_month, today_year]):
+                        try:
+                            # assume this is a multi-part day
+                            day_balance = datetime.timedelta()
+                            for part in day.values():
+                                day_balance += calc_balance(part)
 
-                    except TypeError:
-                        # if not, `part["start"]` should throw a `TypeError`
-                        # -> "string indices must be integers"
-                        # so, go on with the single-part approach
-                        day_balance = calc_balance(day)
+                        except TypeError:
+                            # if not, `part["start"]` should throw a `TypeError`
+                            # -> "string indices must be integers"
+                            # so, go on with the single-part approach
+                            day_balance = calc_balance(day)
 
-                    if "end" in day:
+                        # print(d, m, format_timedelta(day_balance))
                         day["Arbeitszeit"] = format_timedelta(day_balance)
+
 
                     # check if we are on a working day
                     # TODO check for legal holidays?
@@ -316,9 +319,9 @@ def calculate_saldos(db, work_time="8:00"):
                                     day["comment"] = "Wochenende; " + day["comment"]
                             except KeyError:
                                 day["comment"] = "Wochenende"
-
-                    if "end" in day:
                         day["Tagessaldo"] = format_timedelta(day_balance)
+                    else:
+                        day_balance = datetime.timedelta()
                     week_balance += day_balance
 
                     # if there is a comment, move it to the back of the day-dict
@@ -350,7 +353,10 @@ def format_timedelta(td):
 def calc_balance(day):
     try:
         start = day["start"]
-        end = day["end"]
+        try:
+            end = day["end"]
+        except KeyError:
+            end = str(datetime.datetime.now().time())[:5]
         try:
             pause = day["pause"]
         except KeyError:
