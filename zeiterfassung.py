@@ -136,13 +136,14 @@ def main(db=None):
     calculate_saldos(db, work_time=args.work_time)
 
     if not args.quiet:
-        print(f"\nerfasste Zeiten für {args.user}:\n", db_file)
+        # print(f"\nerfasste Zeiten für {args.user}:\n", db_file)
         print(yaml.dump(db if args.verbose else
                     {round_down.strftime("%B"): (db[year][month] if
                      (year in db and month in db[year]) else
                      "no entries for this month")},
                     default_flow_style=args.expand))
     yaml.dump(db, open(db_file, mode="w"), Dumper=Dumper)
+    print("Arbeitszeitkonto:", db[2020]["Jahressaldo"])
 
     for ending in args.export:
         export_file_name = args.db_path + args.user + \
@@ -273,7 +274,7 @@ def sort_db(old_db):
         return old_db
 
 
-def calculate_saldos(db, work_time="7:42"):
+def calculate_saldos(db, work_time="8:00"):
     # calculate over-time saldos on a daily, weekly and monthly basis
 
     work_hours, work_minutes = (int(t) for t in work_time.split(':'))
@@ -366,6 +367,7 @@ def export_excel(db, year, month, file_name):
         from pandas import DataFrame
         from calendar import month_name
     except ImportError:
+        print("ImportError")
         return None
 
     date_col = []
