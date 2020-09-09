@@ -142,8 +142,9 @@ def main(db=None):
                      (year in db and month in db[year]) else
                      "no entries for this month")},
                     default_flow_style=args.expand))
+        if not args.verbose:
+            print("Arbeitszeitkonto:", db["Arbeitszeitkonto"])
     yaml.dump(db, open(db_file, mode="w"), Dumper=Dumper)
-    print("Arbeitszeitkonto:", db[2020]["Jahressaldo"])
 
     for ending in args.export:
         export_file_name = args.db_path + args.user + \
@@ -280,13 +281,18 @@ def calculate_saldos(db, work_time="8:00"):
     work_hours, work_minutes = (int(t) for t in work_time.split(':'))
     today_year, today_month, today_day = (int(t) for t in str(datetime.datetime.now().date()).split('-'))
 
+    kw, dow = [0, 0]
+    azk = datetime.timedelta()
     for y, year in db.items():
         year_balance = datetime.timedelta()
         for m, month in year.items():
             month_balance = datetime.timedelta()
             for w, week in month.items():
-                week_balance = datetime.timedelta()
+                if kw != w:
+                    kw, dow = [w, 0]
+                    week_balance = datetime.timedelta()
                 for d, day in week.items():
+                    dow += 1
                     if ("end" in day) or ([d, m, y] == [today_day, today_month, today_year]):
                         try:
                             # assume this is a multi-part day
@@ -322,7 +328,8 @@ def calculate_saldos(db, work_time="8:00"):
                         day["Tagessaldo"] = format_timedelta(day_balance)
                     else:
                         day_balance = datetime.timedelta()
-                    week_balance += day_balance
+                    week_balance  += day_balance
+                    month_balance += day_balance
 
                     # if there is a comment, move it to the back of the day-dict
                     try:
@@ -332,11 +339,13 @@ def calculate_saldos(db, work_time="8:00"):
                     except KeyError:
                         pass
 
-                week["Wochensaldo"] = format_timedelta(week_balance)
-                month_balance += week_balance
+                if dow >=5 or [today_day, today_month, today_year]==[d,m,y]:
+                    week["Wochensaldo"] = format_timedelta(week_balance)
             month["Monatssaldo"] = format_timedelta(month_balance)
             year_balance += month_balance
         year["Jahressaldo"] = format_timedelta(year_balance)
+        azk += year_balance
+    db["Arbeitszeitkonto"] = format_timedelta(azk)
 
 
 def format_time(t):
