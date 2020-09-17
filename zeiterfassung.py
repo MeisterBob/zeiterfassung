@@ -283,6 +283,7 @@ def calculate_saldos(db, work_time="8:00"):
 
     kw, dow = [0, 0]
     azk = datetime.timedelta()
+    week_total = datetime.timedelta()
     for y, year in db.items():
         year_balance = datetime.timedelta()
         for m, month in year.items():
@@ -290,8 +291,11 @@ def calculate_saldos(db, work_time="8:00"):
             for w, week in month.items():
                 if kw != w:
                     kw, dow = [w, 0]
+                    week_total = datetime.timedelta()
                     week_balance = datetime.timedelta()
                 for d, day in week.items():
+                    if d == "Wochenstunden":
+                        continue
                     dow += 1
                     if ("end" in day) or ([d, m, y] == [today_day, today_month, today_year]):
                         try:
@@ -308,7 +312,7 @@ def calculate_saldos(db, work_time="8:00"):
 
                         # print(d, m, format_timedelta(day_balance))
                         day["Arbeitszeit"] = format_timedelta(day_balance)
-
+                        week_total += day_balance
 
                     # check if we are on a working day
                     # TODO check for legal holidays?
@@ -340,6 +344,7 @@ def calculate_saldos(db, work_time="8:00"):
                         pass
 
                 if dow >=5 or [today_day, today_month, today_year]==[d,m,y]:
+                    week["Wochenstunden"] = "{}:{}".format(int((week_total.days*24)+(week_total.seconds/60/60)), int(((week_total.days*24)+(week_total.seconds/60/60))%1*60+0.5))
                     week["Wochensaldo"] = format_timedelta(week_balance)
             month["Monatssaldo"] = format_timedelta(month_balance)
             year_balance += month_balance
@@ -395,15 +400,22 @@ def export_excel(db, year, month, file_name):
     week_diff_col = []
     month_diff_col = []
     comment_col = []
+    kw, dow = [0, 0]
 
     for w, week in db[year][month].items():
-        week_hours = datetime.timedelta(0)
+        if kw != w:
+            kw, dow = [w, 0]
+            week_hours = datetime.timedelta(0)
         if w == "Monatssaldo":
             continue
         for d, day in week.items():
             if d == "Wochensaldo":
                 continue
-
+            if d == "Wochenstunden":
+                week_hours_col[-1] = day
+                continue
+            
+            dow += 1
             hours, minutes = day["Arbeitszeit"].split(':')
             day_hours = datetime.timedelta(hours=int(hours), minutes=int(minutes))
             week_hours += day_hours
@@ -444,8 +456,11 @@ def export_excel(db, year, month, file_name):
         s = week_hours.total_seconds()
         hours, remainder = divmod(s, 3600)
         minutes, seconds = divmod(remainder, 60)
-        week_hours_col[-1] = f"{int(hours)}:{int(minutes):02d}"
-        week_diff_col[-1] = week["Wochensaldo"]
+        # week_hours_col[-1] = f"{int(hours)}:{int(minutes):02d}"
+        if "Wochensaldo" in week:
+            week_diff_col[-1] = week["Wochensaldo"]
+        else:
+            week_diff_col[-1] = ""
 
     df = DataFrame({'Datum': date_col + [""],
                     'Beginn': start_col + [""],
