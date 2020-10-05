@@ -249,7 +249,7 @@ def clean_db(db):
         for k, v in db.items():
             if isinstance(v, dict):
                 clean_db(v)
-            if v == {} or "saldo" in str(k) or "Arbeit" in str(k):
+            if v == {} or "saldo" in str(k) or "Arbeit" in str(k) or "Woche" in str(k) or "Arbeitszeitkonto" in str(k):
                 del db[k]
     except RuntimeError:
         clean_db(db)
@@ -318,8 +318,7 @@ def calculate_saldos(db, work_time="8:00"):
                     # TODO check for legal holidays?
                     if "end" in day:
                         if datetime.datetime(y, m, d).weekday() < 5:
-                            if "comment" not in day or "urlaub" not in day["comment"].lower():
-                                day_balance -= datetime.timedelta(hours=work_hours, minutes=work_minutes)
+                            day_balance -= datetime.timedelta(hours=work_hours, minutes=work_minutes)
                         else:
                             # we are on a weekend day; make this clear in the comment
                             # and set the expected work time to zero
@@ -332,6 +331,10 @@ def calculate_saldos(db, work_time="8:00"):
                         day["Tagessaldo"] = format_timedelta(day_balance)
                     else:
                         day_balance = datetime.timedelta()
+                        if "comment" in day and "urlaub" in day["comment"].lower():
+                            week_total += datetime.timedelta(hours=work_hours, minutes=work_minutes)
+                        if "comment" in day and "zeitausgleich"in day["comment"].lower():
+                            week_balance -= datetime.timedelta(hours=work_hours, minutes=work_minutes)
                     week_balance  += day_balance
                     month_balance += day_balance
 
@@ -344,7 +347,7 @@ def calculate_saldos(db, work_time="8:00"):
                         pass
 
                 if dow >=5 or [today_day, today_month, today_year]==[d,m,y]:
-                    week["Wochenstunden"] = "{}:{}".format(int((week_total.days*24)+(week_total.seconds/60/60)), int(((week_total.days*24)+(week_total.seconds/60/60))%1*60+0.5))
+                    week["Wochenstunden"] = "{:02d}:{:02d}".format(int((week_total.days*24)+(week_total.seconds/60/60)), int(((week_total.days*24)+(week_total.seconds/60/60))%1*60+0.5))
                     week["Wochensaldo"] = format_timedelta(week_balance)
             month["Monatssaldo"] = format_timedelta(month_balance)
             year_balance += month_balance
