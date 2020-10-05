@@ -417,6 +417,18 @@ def export_excel(db, year, month, file_name):
             if d == "Wochenstunden":
                 week_hours_col[-1] = day
                 continue
+            if "comment" in day and ( "urlaub" in day["comment"].lower() or "zeitausgleich" in day["comment"].lower() ):
+                date_col.append(datetime.date(year, month, d).isoformat())
+                start_col.append("")
+                end_col.append("")
+                break_col.append("")
+                h_incl_break_col.append("")
+                Tagesstunden_col.append("")
+                week_hours_col.append("")
+                week_diff_col.append("")
+                month_diff_col.append("")
+                comment_col.append(day["comment"])
+                continue
             
             dow += 1
             hours, minutes = day["Arbeitszeit"].split(':')
@@ -424,13 +436,16 @@ def export_excel(db, year, month, file_name):
             week_hours += day_hours
 
             try:  # single-entry day
+                date_col.append(datetime.date(year, month, d).isoformat())
                 start_col.append(day["start"])
                 end_col.append(day["end"])
-                break_col.append(day["pause"])
-                date_col.append(datetime.date(year, month, d).isoformat())
+                if "pause" in day:
+                    break_col.append(day["pause"])
+                    h_incl_break_col.append(format_timedelta(day_hours + datetime.timedelta(minutes=day["pause"])))
+                else:
+                    break_col.append("")
+                    h_incl_break_col.append(format_timedelta(day_hours))
 
-                h_incl_break_col.append(format_timedelta(day_hours +
-                                        datetime.timedelta(minutes=day["pause"])))
                 Tagesstunden_col.append("")
                 try:
                     comment_col.append(day["comment"])
