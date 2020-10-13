@@ -136,14 +136,39 @@ def main(db=None):
     calculate_saldos(db, work_time=args.work_time)
 
     if not args.quiet:
-        # print(f"\nerfasste Zeiten für {args.user}:\n", db_file)
-        print(yaml.dump(db if args.verbose else
-                    {round_down.strftime("%B"): (db[year][month] if
-                     (year in db and month in db[year]) else
-                     "no entries for this month")},
-                    default_flow_style=args.expand))
-        if not args.verbose:
-            print("Arbeitszeitkonto:", db["Arbeitszeitkonto"])
+        for y, y_data in db.items():
+            if y == "Arbeitszeitkonto":
+                print("{:<21} {:>6}".format(y, db["Arbeitszeitkonto"]))
+                continue
+            for m, m_data in y_data.items():
+                if m == "Jahressaldo":
+                    continue
+                if m == month or args.verbose:
+                    print(y, "-", m, sep="")
+                    for w, w_data in m_data.items():
+                        if w == "Monatssaldo":
+                            print("{:<21} {:>6}".format(w, w_data))
+                            continue
+                        print("KW", w)
+                        print("      {:^5} {:^5} {:5} {:^4} {:>5} {}".format("von", "bis", "Pause", "AZ", "Saldo", ""))
+                        for d, d_data in w_data.items():
+                            if d == "Wochenstunden":
+                                print("{:<21} {:>6} {:>5}".format(d, d_data, w_data["Wochensaldo"]))
+                                continue
+                            if d == "Wochensaldo":
+                                continue
+                            print("{:3}   {:5} {:5} {:^5} {:>4} {:>5} {}".format(
+                                d,
+                                d_data["start"]       if "start"       in d_data else "",
+                                d_data["end"]         if "end"         in d_data else "",
+                                -d_data["pause"]       if "pause"       in d_data else "",
+                                d_data["Arbeitszeit"] if "Arbeitszeit" in d_data else "",
+                                d_data["Tagessaldo"]  if "Tagessaldo"  in d_data else "",
+                                d_data["comment"]     if "comment"     in d_data else ""
+                            ))
+
+        # if not args.verbose:
+        #     print("Arbeitszeitkonto:", db["Arbeitszeitkonto"])
     yaml.dump(db, open(db_file, mode="w"), Dumper=Dumper)
 
     for ending in args.export:
@@ -436,20 +461,29 @@ def export_excel(db, year, month, file_name):
             week_hours += day_hours
 
             try:  # single-entry day
-                date_col.append(datetime.date(year, month, d).isoformat())
-                start_col.append(day["start"])
-                end_col.append(day["end"])
-                if "pause" in day:
-                    break_col.append(day["pause"])
-                    h_incl_break_col.append(format_timedelta(day_hours + datetime.timedelta(minutes=day["pause"])))
+                if "end" in day:
+                    date_col.append(datetime.date(year, month, d).isoformat())
+                    start_col.append(day["start"])
+                    end_col.append(day["end"])
+                    if "pause" in day:
+                        break_col.append(day["pause"])
+                        h_incl_break_col.append(format_timedelta(day_hours + datetime.timedelta(minutes=day["pause"])))
+                    else:
+                        break_col.append("")
+                        h_incl_break_col.append(format_timedelta(day_hours))
+
+                    Tagesstunden_col.append("")
+                    try:
+                        comment_col.append(day["comment"])
+                    except KeyError:
+                        comment_col.append("")
                 else:
+                    date_col.append(datetime.date(year, month, d).isoformat())
+                    start_col.append(day["start"])
+                    end_col.append("")
                     break_col.append("")
                     h_incl_break_col.append(format_timedelta(day_hours))
-
-                Tagesstunden_col.append("")
-                try:
-                    comment_col.append(day["comment"])
-                except KeyError:
+                    Tagesstunden_col.append("")
                     comment_col.append("")
             except (TypeError, KeyError):  # multi-day entry
                 for t, token in day.items():
