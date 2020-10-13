@@ -7,6 +7,7 @@ from os.path import expandvars
 
 import argparse
 import datetime
+from termcolor import colored
 
 import yaml
 try:
@@ -135,35 +136,35 @@ def main(db=None):
     # calculate over-time saldos on a daily, weekly and monthly basis
     calculate_saldos(db, work_time=args.work_time)
 
+    kw = 0
     if not args.quiet:
         for y, y_data in db.items():
             if y == "Arbeitszeitkonto":
-                print("{:<21} {:>6}".format(y, db["Arbeitszeitkonto"]))
+                print("{:<30} {:>21}".format(colored("Arbeitszeitkonto", "blue"), colored(db["Arbeitszeitkonto"], "red" if db["Arbeitszeitkonto"][0]=="-" else "green")))
                 continue
             for m, m_data in y_data.items():
                 if m == "Jahressaldo":
                     continue
                 if m == month or args.verbose:
-                    print(y, "-", m, sep="")
                     for w, w_data in m_data.items():
                         if w == "Monatssaldo":
-                            print("{:<21} {:>6}".format(w, w_data))
+                            print("{:<20} {:4}-{:>02}   {:>21}".format(colored("Monatssaldo", "blue"), y, m, colored(w_data, "red" if w_data[0]=="-" else "green")))
                             continue
-                        print("KW", w)
-                        print("      {:^5} {:^5} {:5} {:^4} {:>5} {}".format("von", "bis", "Pause", "AZ", "Saldo", ""))
+                        kw = w
+                        print("\n      {:^5} {:^5} {:5} {:^4} {:>5} {}".format("von", "bis", "Pause", "AZ", "Saldo", ""))
                         for d, d_data in w_data.items():
                             if d == "Wochenstunden":
-                                print("{:<21} {:>6} {:>5}".format(d, d_data, w_data["Wochensaldo"]))
+                                print("{:<22} KW {:<4} {:>6} {:>14}".format(colored("Wochenstunden", "blue"), kw, d_data, colored(w_data["Wochensaldo"], "red" if w_data["Wochensaldo"][0]=="-" else "green")))
                                 continue
                             if d == "Wochensaldo":
                                 continue
-                            print("{:3}   {:5} {:5} {:^5} {:>4} {:>5} {}".format(
+                            print("{:3}   {:5} {:5} {:^5} {:>4} {:>14} {}".format(
                                 d,
                                 d_data["start"]       if "start"       in d_data else "",
                                 d_data["end"]         if "end"         in d_data else "",
-                                -d_data["pause"]       if "pause"       in d_data else "",
+                                d_data["pause"]       if "pause"       in d_data else "",
                                 d_data["Arbeitszeit"] if "Arbeitszeit" in d_data else "",
-                                d_data["Tagessaldo"]  if "Tagessaldo"  in d_data else "",
+                                colored(d_data["Tagessaldo"] if "Tagessaldo" in d_data else "", "red" if (d_data["Tagessaldo"][0] if "Tagessaldo" in d_data else "")=="-" else "green"),
                                 d_data["comment"]     if "comment"     in d_data else ""
                             ))
 
