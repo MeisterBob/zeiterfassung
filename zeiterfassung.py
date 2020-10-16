@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-import sys
+import sys, select
 import os
 from os.path import expandvars
 
@@ -243,7 +243,11 @@ def update_day(this_day, args, round_up, round_down):
     if args.pause is not False:
         if args.pause is None:
             start = datetime.datetime.now()
-            input("[Enter] drücken um die Pause zu beenden")
+            print("[Enter] drücken um die Pause zu beenden")
+            i = None
+            while not i:
+                i, o, e = select.select( [sys.stdin], [], [], 1 )
+                print(" {:02}:{:02}".format(int((datetime.datetime.now() - start).total_seconds()/60), int((datetime.datetime.now() - start).total_seconds())%60), end="\r")
             this_day["pause"] = int((datetime.datetime.now() - start).total_seconds()/60)
         else:
             this_day["pause"] = args.pause
