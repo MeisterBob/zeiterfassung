@@ -3,11 +3,12 @@
 
 import sys
 import os
-from os.path import expandvars
+from   os.path import expandvars
 
 import argparse
 import datetime
-from termcolor import colored
+from   termcolor import colored
+from babel.dates import format_date
 
 import yaml
 try:
@@ -21,67 +22,38 @@ def main(db=None):
         formatter_class=lambda prog:
             argparse.RawTextHelpFormatter(prog, width=90, max_help_position=27))
 
-    date_group = parser.add_argument_group(
-        description="bestimmt den zu bearbeitenden Tag;"
-                    " falls nichts gesetzt, nutze heute:")
-    date_group.add_argument('--date', type=str, default=False,
-                            help="zu bearbeitender Tag im ISO Format"
-                                 " (z.B. 1970-12-31)")
-    date_group.add_argument('-d', '--day', type=int, default=False,
-                            help="bestimmt den zu bearbeitenden Tag")
-    date_group.add_argument('-m', '--month', type=int, default=False,
-                            help="bestimmt den zu bearbeitenden Monat")
-    date_group.add_argument('-y', '--year', type=int, default=False,
-                            help="bestimmt das zu bearbeitende Jahr")
+    date_group = parser.add_argument_group(description="bestimmt den zu bearbeitenden Tag; falls nichts gesetzt, nutze heute:")
+    date_group.add_argument('--date', type=str, default=False, help="zu bearbeitender Tag im ISO Format (z.B. 1970-12-31)")
+    date_group.add_argument('-d', '--day', type=int, default=False, help="bestimmt den zu bearbeitenden Tag")
+    date_group.add_argument('-m', '--month', type=int, default=False, help="bestimmt den zu bearbeitenden Monat")
+    date_group.add_argument('-y', '--year', type=int, default=False, help="bestimmt das zu bearbeitende Jahr")
 
     day_group = parser.add_argument_group(description="definiert den Arbeitstag:")
-    day_group.add_argument('-s', '--start', type=str, nargs='?', default=False,
-                           help="setzt Arbetisbeginn, falls ohne Argument:"
-                                " nutze jetzt")
-    day_group.add_argument('-e', '--end', type=str, nargs='?', default=False,
-                           help="setzt Arbeitsende, falls ohne Argument:"
-                                " nutze jetzt")
+    day_group.add_argument('-s', '--start', type=str, nargs='?', default=False, help="setzt Arbetisbeginn, falls ohne Argument: nutze jetzt")
+    day_group.add_argument('-e', '--end', type=str, nargs='?', default=False, help="setzt Arbeitsende, falls ohne Argument: nutze jetzt")
 
-    day_group.add_argument('-p', '--pause', type=int, nargs='?', default=False,
-                           help="Pausenzeit in Minuten")
+    day_group.add_argument('-p', '--pause', type=int, nargs='?', default=False, help="Pausenzeit in Minuten")
 
-    day_group.add_argument('-c', '--comment', type=str, nargs='*', default=None,
-                           help="optionaler Kommentar zum Eintrag")
+    day_group.add_argument('-c', '--comment', type=str, nargs='*', default=None, help="optionaler Kommentar zum Eintrag")
 
-    day_group.add_argument('--multi_day', type=str, default=False,
-                           help="ermöglicht mehrere Einträge pro Tag")
+    day_group.add_argument('--multi_day', type=str, default=False, help="ermöglicht mehrere Einträge pro Tag")
 
-    parser.add_argument('-w', '--work_time', type=str, default='8:00',
-                        help="Arbeitspensum pro Tag; Format H:MM")
+    parser.add_argument('-w', '--work_time', type=str, default='8:00', help="Arbeitspensum pro Tag; Format H:MM")
 
-    parser.add_argument('-r', '--round', type=int, default='1',
-                        help="Arbeitsbeginn/-ende auf ROUND Minuten runden")
+    parser.add_argument('-r', '--round', type=int, default='1', help="Arbeitsbeginn/-ende auf ROUND Minuten runden")
 
-    parser.add_argument('--db_path', type=str, default=os.path.dirname(__file__)+"/data/",
-                        help="Ort, an dem die In- und Output Files liegen")
-    parser.add_argument('--user', type=str, default="GJ",
-                        help="zu bearbeitender Mitarbeiter")
-    parser.add_argument('--export', nargs='*', default=[],
-                        help="schreibt erfasste Zeiten in gegebenen Formaten;\n"
-                             "unterstützt: [yml, xls]")
+    parser.add_argument('--db_path', type=str, default=os.path.dirname(__file__)+"/data/", help="Ort, an dem die In- und Output Files liegen")
+    parser.add_argument('--user', type=str, default="GJ", help="zu bearbeitender Mitarbeiter")
+    parser.add_argument('--export', nargs='*', default=[], help="schreibt erfasste Zeiten in gegebenen Formaten;\nunterstützt: [yml, xls]")
 
-    parser.add_argument('--remove', action='store_true', default=False,
-                        help="entfernt den momentanen Tag aus der DB")
-    parser.add_argument('-v', '--verbose', action='store_true', default=False,
-                        help="prints the all stored days for the user instead of only"
-                             " current month")
+    parser.add_argument('--remove', action='store_true', default=False, help="entfernt den momentanen Tag aus der DB")
+    parser.add_argument('-v', '--verbose', action='store_true', default=False, help="prints the all stored days for the user instead of only current month")
     parser.add_argument('-q', '--quiet', action='store_true', default=False, help="nur Fehler ausgeben")
-    parser.add_argument('--expand', action='store_false', default=None,
-                        help="expandiert die anderweitig kompakte Ausgabe der erfassten"
-                             " Zeiten")
+    parser.add_argument('--expand', action='store_false', default=None, help="expandiert die anderweitig kompakte Ausgabe der erfassten Zeiten")
 
     out_of_office_group = parser.add_mutually_exclusive_group()
-    out_of_office_group.add_argument('-u', '--urlaub', action='store_true', default=None,
-                                     help="deklariert den Tag als Urlaubstag:\n"
-                                          "keine Arbeit erwartet, kein Saldo verbraucht")
-    out_of_office_group.add_argument('-z', '--zeitausgleich', action='store_true',
-                                     default=None, help="keine Arbeitszeit, Saldo wird "
-                                     "um reguläre Zeit veringert")
+    out_of_office_group.add_argument('-u', '--urlaub', action='store_true', default=None, help="deklariert den Tag als Urlaubstag:\nkeine Arbeit erwartet, kein Saldo verbraucht")
+    out_of_office_group.add_argument('-z', '--zeitausgleich', action='store_true', default=None, help="keine Arbeitszeit, Saldo wird um reguläre Zeit veringert")
 
     args = parser.parse_args()
 
@@ -104,18 +76,17 @@ def main(db=None):
 
     now = datetime.datetime.now()
 
-    date = args.date or str(now.date())
+    date             = args.date or str(now.date())
     year, month, day = (int(t) for t in date.split('-'))
-    year = args.year or year
-    month = args.month or month
-    day = args.day or day
-    week = datetime.date(year, month, day).isocalendar()[1]
+    year             = args.year or year
+    month            = args.month or month
+    day              = args.day or day
+    week             = datetime.date(year, month, day).isocalendar()[1]
 
     hours, minutes = (int(t) for t in str(now.time()).split(':')[:-1])
-    minutes = minutes - minutes % args.round  # rounding minutes to last quarter
-    round_down = datetime.datetime(year, month, day, hours, minutes, 00)
-    round_up = datetime.datetime(year, month, day, hours, minutes, 00) \
-        + datetime.timedelta(minutes=args.round)
+    minutes        = minutes - minutes % args.round  # rounding minutes to last quarter
+    round_down     = datetime.datetime(year, month, day, hours, minutes, 00)
+    round_up       = datetime.datetime(year, month, day, hours, minutes, 00) + datetime.timedelta(minutes=args.round)
 
     # get the desired day and create its data base entry if not there yet
     this_day = get_day_from_db(db, year, month, week, day)
@@ -140,32 +111,34 @@ def main(db=None):
     if not args.quiet:
         for y, y_data in db.items():
             if y == "Arbeitszeitkonto":
-                print("{:<30} {:>21}".format(colored("Arbeitszeitkonto", "blue"), colored(db["Arbeitszeitkonto"], "red" if db["Arbeitszeitkonto"][0]=="-" else "green")))
+                print("\n{:<30} {:>21}".format(colored("Arbeitszeitkonto", "blue"), colored(db["Arbeitszeitkonto"], "red" if db["Arbeitszeitkonto"][0]=="-" else "green")))
                 continue
             for m, m_data in y_data.items():
                 if m == "Jahressaldo":
                     continue
                 if m == month or args.verbose:
+                    # print(colored("\n{:^48}".format( format_time(date(y, m, 1), "MMMM YYYY", locale="de")), "blue"))
+                    print( colored("\n{:^48}".format( format_date(datetime.date(y, m, 1), "MMMM YYYY", locale="de") ), "blue") )
                     for w, w_data in m_data.items():
                         if w == "Monatssaldo":
-                            print("{:<20} {:4}-{:>02}   {:>21}".format(colored("Monatssaldo", "blue"), y, m, colored(w_data, "red" if w_data[0]=="-" else "green")))
+                            print("\n{:<20}           {:>21}".format(colored("Monatssaldo", "blue"), colored(w_data, "red" if w_data[0]=="-" else "green")))
                             continue
                         kw = w
-                        print("\n      {:^5} {:^5} {:5} {:^4} {:>5} {}".format("von", "bis", "Pause", "AZ", "Saldo", ""))
+                        print("\n", colored("KW {:>2}".format(kw), "blue"), " {:^5} {:^5} {:5} {:^4} {:>5}  {}".format("von", "bis", "Pause", "AZ", "Saldo", "Kommentar/AZK"), sep="")
                         for d, d_data in w_data.items():
                             if d == "Wochenstunden":
-                                print("{:<22} KW {:<4} {:>6} {:>14}".format(colored("Wochenstunden", "blue"), kw, d_data, colored(w_data["Wochensaldo"], "red" if w_data["Wochensaldo"][0]=="-" else "green")))
+                                print("{:<22}         {:>6} {:>14} {:>23}".format(colored("Wochenstunden", "blue"), d_data, colored(w_data["Wochensaldo"], "red" if w_data["Wochensaldo"][0]=="-" else "green"), colored(w_data["AZK"], "red" if w_data["AZK"][0]=="-" else "green")))
                                 continue
-                            if d == "Wochensaldo":
+                            if d == "Wochensaldo" or d == "AZK":
                                 continue
-                            print("{:3}   {:5} {:5} {:^5} {:>4} {:>14} {}".format(
+                            print("{:3}   {:5} {:5} {:^5} {:>4} {:>14}  {}".format(
                                 d,
-                                d_data["start"]       if "start"       in d_data else "",
-                                d_data["end"]         if "end"         in d_data else "",
-                                d_data["pause"]       if "pause"       in d_data else "",
-                                d_data["Arbeitszeit"] if "Arbeitszeit" in d_data else "",
-                                colored(d_data["Tagessaldo"] if "Tagessaldo" in d_data else "", "red" if (d_data["Tagessaldo"][0] if "Tagessaldo" in d_data else "")=="-" else "green"),
-                                d_data["comment"]     if "comment"     in d_data else ""
+                                d_data["start"]              if "start"       in d_data else "",
+                                d_data["end"]                if "end"         in d_data else "",
+                                d_data["pause"]              if "pause"       in d_data else "",
+                                d_data["Arbeitszeit"]        if "Arbeitszeit" in d_data else "",
+                                colored(d_data["Tagessaldo"] if "Tagessaldo"  in d_data else "", "red" if (d_data["Tagessaldo"][0] if "Tagessaldo" in d_data else "")=="-" else "green"),
+                                d_data["comment"]            if "comment"     in d_data else ""
                             ))
 
         # if not args.verbose:
@@ -275,7 +248,7 @@ def clean_db(db):
         for k, v in db.items():
             if isinstance(v, dict):
                 clean_db(v)
-            if v == {} or "saldo" in str(k) or "Arbeit" in str(k) or "Woche" in str(k) or "Arbeitszeitkonto" in str(k):
+            if v == {} or "saldo" in str(k) or "Arbeit" in str(k) or "Woche" in str(k) or "Arbeitszeitkonto" in str(k) or "AZK" in str(k):
                 del db[k]
     except RuntimeError:
         clean_db(db)
@@ -303,12 +276,12 @@ def sort_db(old_db):
 
 def calculate_saldos(db, work_time="8:00"):
     # calculate over-time saldos on a daily, weekly and monthly basis
-
-    work_hours, work_minutes = (int(t) for t in work_time.split(':'))
+    work_hours, work_minutes           = (int(t) for t in work_time.split(':'))
     today_year, today_month, today_day = (int(t) for t in str(datetime.datetime.now().date()).split('-'))
 
     kw, dow = [0, 0]
-    azk = datetime.timedelta()
+    azk     = datetime.timedelta()
+    az      = datetime.timedelta()
     week_total = datetime.timedelta()
     for y, year in db.items():
         year_balance = datetime.timedelta()
@@ -316,8 +289,8 @@ def calculate_saldos(db, work_time="8:00"):
             month_balance = datetime.timedelta()
             for w, week in month.items():
                 if kw != w:
-                    kw, dow = [w, 0]
-                    week_total = datetime.timedelta()
+                    kw, dow      = [w, 0]
+                    week_total   = datetime.timedelta()
                     week_balance = datetime.timedelta()
                 for d, day in week.items():
                     if d == "Wochenstunden":
@@ -338,7 +311,7 @@ def calculate_saldos(db, work_time="8:00"):
 
                         # print(d, m, format_timedelta(day_balance))
                         day["Arbeitszeit"] = format_timedelta(day_balance)
-                        week_total += day_balance
+                        week_total        += day_balance
 
                     # check if we are on a working day
                     # TODO check for legal holidays?
@@ -363,6 +336,7 @@ def calculate_saldos(db, work_time="8:00"):
                             day_balance -= datetime.timedelta(hours=work_hours, minutes=work_minutes)
                     week_balance  += day_balance
                     month_balance += day_balance
+                    az            += day_balance
 
                     # if there is a comment, move it to the back of the day-dict
                     try:
@@ -372,13 +346,17 @@ def calculate_saldos(db, work_time="8:00"):
                     except KeyError:
                         pass
 
+
                 if dow >=5 or [today_day, today_month, today_year]==[d,m,y]:
                     week["Wochenstunden"] = "{:02d}:{:02d}".format(int((week_total.days*24)+(week_total.seconds/60/60)), int(((week_total.days*24)+(week_total.seconds/60/60))%1*60+0.5))
-                    week["Wochensaldo"] = format_timedelta(week_balance)
+                    week["Wochensaldo"]   = format_timedelta(week_balance)
+                    week["AZK"]           = format_timedelta(az)
+                
+
             month["Monatssaldo"] = format_timedelta(month_balance)
-            year_balance += month_balance
-        year["Jahressaldo"] = format_timedelta(year_balance)
-        azk += year_balance
+            year_balance        += month_balance
+        year["Jahressaldo"]  = format_timedelta(year_balance)
+        azk                 += year_balance
     db["Arbeitszeitkonto"] = format_timedelta(azk)
 
 
@@ -404,9 +382,7 @@ def calc_balance(day):
             pause = day["pause"]
         except KeyError:
             pause = 0
-        return (datetime.datetime.strptime(end, '%H:%M') -
-                datetime.datetime.strptime(start, '%H:%M') -
-                datetime.timedelta(minutes=pause))
+        return (datetime.datetime.strptime(end, '%H:%M') - datetime.datetime.strptime(start, '%H:%M') - datetime.timedelta(minutes=pause))
     except KeyError:
         return datetime.timedelta()
 
@@ -419,17 +395,17 @@ def export_excel(db, year, month, file_name):
         print("ImportError")
         return None
 
-    date_col = []
-    start_col = []
-    end_col = []
-    break_col = []
+    date_col         = []
+    start_col        = []
+    end_col          = []
+    break_col        = []
     h_incl_break_col = []
     Tagesstunden_col = []
-    week_hours_col = []
-    week_diff_col = []
-    month_diff_col = []
-    comment_col = []
-    kw, dow = [0, 0]
+    week_hours_col   = []
+    week_diff_col    = []
+    month_diff_col   = []
+    comment_col      = []
+    kw, dow          = [0, 0]
 
     for w, week in db[year][month].items():
         if kw != w:
@@ -456,10 +432,10 @@ def export_excel(db, year, month, file_name):
                 comment_col.append(day["comment"])
                 continue
             
-            dow += 1
+            dow           += 1
             hours, minutes = day["Arbeitszeit"].split(':')
-            day_hours = datetime.timedelta(hours=int(hours), minutes=int(minutes))
-            week_hours += day_hours
+            day_hours      = datetime.timedelta(hours=int(hours), minutes=int(minutes))
+            week_hours    += day_hours
 
             try:  # single-entry day
                 if "end" in day:
@@ -506,7 +482,7 @@ def export_excel(db, year, month, file_name):
             week_diff_col.append("")
             month_diff_col.append("")
 
-        s = week_hours.total_seconds()
+        s                = week_hours.total_seconds()
         hours, remainder = divmod(s, 3600)
         minutes, seconds = divmod(remainder, 60)
         # week_hours_col[-1] = f"{int(hours)}:{int(minutes):02d}"
@@ -515,16 +491,16 @@ def export_excel(db, year, month, file_name):
         else:
             week_diff_col[-1] = ""
 
-    df = DataFrame({'Datum': date_col + [""],
-                    'Beginn': start_col + [""],
-                    'Ende': end_col + [""],
-                    'Pause': break_col + [""],
+    df = DataFrame({'Datum':         date_col         + [""],
+                    'Beginn':        start_col        + [""],
+                    'Ende':          end_col          + [""],
+                    'Pause':         break_col        + [""],
                     'h inkl. Pause': h_incl_break_col + [""],
-                    'Tagesstunden': Tagesstunden_col + [""],
-                    'Wochenstunden': week_hours_col + [""],
-                    'Wochensaldo': week_diff_col + [""],
-                    'Monatssaldo': month_diff_col + [db[year][month]["Monatssaldo"]],
-                    'Kommentar': comment_col + [month_name[month]]})
+                    'Tagesstunden':  Tagesstunden_col + [""],
+                    'Wochenstunden': week_hours_col   + [""],
+                    'Wochensaldo':   week_diff_col    + [""],
+                    'Monatssaldo':   month_diff_col   + [db[year][month]["Monatssaldo"]],
+                    'Kommentar':     comment_col      + [month_name[month]]})
 
     df.to_excel(file_name, sheet_name='Tabelle1', index=False)
 
