@@ -418,7 +418,7 @@ def export_excel(db, year, month, file_name):
         if w == "Monatssaldo":
             continue
         for d, day in week.items():
-            if d == "Wochensaldo":
+            if d == "Wochensaldo" or d == "AZK":
                 continue
             if d == "Wochenstunden":
                 week_hours_col[-1] = day
@@ -437,7 +437,7 @@ def export_excel(db, year, month, file_name):
                 continue
             
             dow           += 1
-            hours, minutes = day["Arbeitszeit"].split(':')
+            hours, minutes = day['Arbeitszeit'].split(':')
             day_hours      = datetime.timedelta(hours=int(hours), minutes=int(minutes))
             week_hours    += day_hours
 
