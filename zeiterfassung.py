@@ -334,7 +334,7 @@ def calculate_saldos(db, work_time="8:00"):
                         day["Tagessaldo"] = format_timedelta(day_balance)
                     else:
                         day_balance = datetime.timedelta()
-                        if "comment" in day and "urlaub" in day["comment"].lower():
+                        if "comment" in day and ("urlaub" in day["comment"].lower() or "feiertag" in day["comment"].lower()):
                             week_total += datetime.timedelta(hours=work_hours, minutes=work_minutes)
                         if "comment" in day and "zeitausgleich"in day["comment"].lower():
                             day_balance -= datetime.timedelta(hours=work_hours, minutes=work_minutes)
