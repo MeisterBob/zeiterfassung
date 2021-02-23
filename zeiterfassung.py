@@ -221,7 +221,10 @@ def update_day(this_day, args, round_up, round_down):
             while not i:
                 i, o, e = select.select( [sys.stdin], [], [], 1 )
                 print(" {:02}:{:02}".format(int((datetime.datetime.now() - start).total_seconds()/60), int((datetime.datetime.now() - start).total_seconds())%60), end="\r")
-            this_day["pause"] = int((datetime.datetime.now() - start).total_seconds()/60)
+            if "pause" in this_day:
+                this_day["pause"] += int((datetime.datetime.now() - start).total_seconds()/60)
+            else:
+                this_day["pause"] = int((datetime.datetime.now() - start).total_seconds()/60)
         else:
             this_day["pause"] = args.pause
 
