@@ -51,6 +51,7 @@ def main(db=None):
     parser.add_argument('-q', '--quiet', action='store_true', default=False, help="nur Fehler ausgeben")
     parser.add_argument('--expand', action='store_false', default=None, help="expandiert die anderweitig kompakte Ausgabe der erfassten Zeiten")
 
+    parser.add_argument('--az', action='store_true', default=None, help="nur heutige AZ anzeigen")
     parser.add_argument('--waz', action='store_true', default=None, help="nur aktuelle WAZ anzeigen")
     parser.add_argument('--azk', action='store_true', default=None, help="nur Arbeitszeitkonto")
 
@@ -112,11 +113,12 @@ def main(db=None):
 
     kw = 0
     if not args.quiet:
+        taz = 0
         waz = 0
         waz_diff = 0
         for y, y_data in db.items():
             if y == "Arbeitszeitkonto":
-                if not args.waz:
+                if not args.waz and not args.az:
                     if not args.azk:
                         print("\n{:<30} {:>21}".format(colored("Arbeitszeitkonto", "blue"), colored(db["Arbeitszeitkonto"], "red" if db["Arbeitszeitkonto"][0]=="-" else "green")))
                     else:
@@ -129,39 +131,46 @@ def main(db=None):
                     continue
                 if m == month or args.verbose:
                     # print(colored("\n{:^48}".format( format_time(date(y, m, 1), "MMMM YYYY", locale="de")), "blue"))
-                    if not args.waz:
+                    if not args.waz and not args.az:
                         print( colored("\n{:^48}".format( format_date(datetime.date(y, m, 1), "MMMM YYYY", locale="de") ), "blue") )
                     for w, w_data in m_data.items():
                         if w == "Monatssaldo":
-                            if not args.waz:
+                            if not args.waz and not args.az:
                                 print("\n{:<20}           {:>21}".format(colored("Monatssaldo", "blue"), colored(w_data, "red" if w_data[0]=="-" else "green")))
                             continue
                         kw = w
-                        if not args.waz:
+                        if not args.waz and not args.az:
                             print("\n", colored("KW {:>2}".format(kw), "blue"), " {:^5} {:^5} {:5} {:^4} {:>5}  {}".format("von", "bis", "Pause", "AZ", "Saldo", "Kommentar/AZK"), sep="")
                         for d, d_data in w_data.items():
                             if d == "Wochenstunden":
-                                if not args.waz:
-                                    print("{:<22}         {:>6} {:>14} {:>23}".format(colored("Wochenstunden", "blue"), d_data, colored(w_data["Wochensaldo"], "red" if w_data["Wochensaldo"][0]=="-" else "green"), colored(w_data["AZK"], "red" if w_data["AZK"][0]=="-" else "green")))
-                                else:
-                                    waz = d_data
-                                    waz_diff = w_data["Wochensaldo"]
+                                if not args.az:
+                                    if not args.waz:
+                                        print("{:<22}         {:>6} {:>14} {:>23}".format(colored("Wochenstunden", "blue"), d_data, colored(w_data["Wochensaldo"], "red" if w_data["Wochensaldo"][0]=="-" else "green"), colored(w_data["AZK"], "red" if w_data["AZK"][0]=="-" else "green")))
+                                    else:
+                                        waz = d_data
+                                        waz_diff = w_data["Wochensaldo"]
                                 continue
                             if d == "Wochensaldo" or d == "AZK":
                                 continue
                             if not args.waz:
-                                print("{:3}   {:5} {:5} {:^5} {:>4} {:>14}  {}".format(
-                                    d,
-                                    d_data["start"]              if "start"       in d_data else "",
-                                    d_data["end"]                if "end"         in d_data else "",
-                                    d_data["pause"]              if "pause"       in d_data else "",
-                                    d_data["Arbeitszeit"]        if "Arbeitszeit" in d_data else "",
-                                    colored(d_data["Tagessaldo"] if "Tagessaldo"  in d_data else "", "red" if (d_data["Tagessaldo"][0] if "Tagessaldo" in d_data else "")=="-" else "green"),
-                                    d_data["comment"]            if "comment"     in d_data else ""
-                                ))
+                                if not args.az:
+                                    print("{:3}   {:5} {:5} {:^5} {:>4} {:>14}  {}".format(
+                                        d,
+                                        d_data["start"]              if "start"       in d_data else "",
+                                        d_data["end"]                if "end"         in d_data else "",
+                                        d_data["pause"]              if "pause"       in d_data else "",
+                                        d_data["Arbeitszeit"]        if "Arbeitszeit" in d_data else "",
+                                        colored(d_data["Tagessaldo"] if "Tagessaldo"  in d_data else "", "red" if (d_data["Tagessaldo"][0] if "Tagessaldo" in d_data else "")=="-" else "green"),
+                                        d_data["comment"]            if "comment"     in d_data else ""
+                                    ))
+                                else:
+                                    taz = d_data["Arbeitszeit"] if "Arbeitszeit" in d_data else 0
 
         if args.waz:
-            print("{:>5} ({:>4})".format(waz, colored(waz_diff, "red" if waz_diff[0]=="-" else "green")), end="")
+            #print("{:>5} ({:>4})".format(waz, colored(waz_diff, "red" if waz_diff[0]=="-" else "green")), end="")
+            print("{:>5}".format(waz), end="")
+        if args.az:
+            print("{:>4}".format(taz), end="")
 
         # if not args.verbose:
         #     print("Arbeitszeitkonto:", db["Arbeitszeitkonto"])
