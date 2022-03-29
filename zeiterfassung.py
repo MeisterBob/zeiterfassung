@@ -82,6 +82,10 @@ def main(db=None):
     out_of_office_group = parser.add_mutually_exclusive_group()
     out_of_office_group.add_argument('-u', '--urlaub', action='store_true', default=None,
                                      help="deklariert den Tag als Urlaubstag:\nkeine Arbeit erwartet, kein Saldo verbraucht")
+    out_of_office_group.add_argument('-k', '--krank', action='store_true', default=None,
+                                     help="deklariert den Tag als Krankheitstag:\nkeine Arbeit erwartet, kein Saldo verbraucht")
+    out_of_office_group.add_argument('-f', '--feiertag', action='store_true',
+                                     default=None, help="keine Arbeitszeit, Saldo wird um reguläre Zeit veringert")
     out_of_office_group.add_argument('-z', '--zeitausgleich', action='store_true',
                                      default=None, help="keine Arbeitszeit, Saldo wird um reguläre Zeit veringert")
 
@@ -92,6 +96,16 @@ def main(db=None):
             args.comment[0:0] = ["Urlaub;"]
         except TypeError:
             args.comment = ["Urlaub"]
+    elif args.krank:
+        try:
+            args.comment[0:0] = ["Krank;"]
+        except TypeError:
+            args.comment = ["Krank"]
+    elif args.feiertag:
+        try:
+            args.comment[0:0] = ["Feiertag;"]
+        except TypeError:
+            args.comment = ["Feiertag"]
     elif args.zeitausgleich:
         try:
             args.comment[0:0] = ["Zeitausgleich;"]
@@ -409,7 +423,7 @@ def calculate_saldos(db, work_time="8:00"):
                         day["Tagessaldo"] = format_timedelta(day_balance)
                     else:
                         day_balance = datetime.timedelta()
-                        if "comment" in day and ("urlaub" in day["comment"].lower() or "feiertag" in day["comment"].lower()):
+                        if "comment" in day and ("urlaub" in day["comment"].lower() or "feiertag" in day["comment"].lower() or "krank" in day["comment"].lower()):
                             week_total += datetime.timedelta(
                                 hours=work_hours, minutes=work_minutes)
                         elif "comment" in day and "zeitausgleich" in day["comment"].lower():
