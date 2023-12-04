@@ -8,6 +8,7 @@ from os.path import expandvars
 
 import argparse
 import datetime
+from pytimeparse.timeparse import timeparse
 from termcolor import colored
 from babel.dates import format_date
 
@@ -74,6 +75,8 @@ def main(db=None):
 
     parser.add_argument('--az', action='store_true',
                         default=None, help="nur heutige AZ anzeigen")
+    parser.add_argument('--feierabend', action='store_true',
+                        default=None, help="Zeit bis Feierabend anzeigen")
     parser.add_argument('--waz', action='store_true',
                         default=None, help="nur aktuelle WAZ anzeigen")
     parser.add_argument('--azk', action='store_true',
@@ -159,7 +162,7 @@ def main(db=None):
         waz_diff = 0
         for y, y_data in db.items():
             if y == "Arbeitszeitkonto":
-                if not args.waz and not args.az:
+                if not args.waz and not args.az and not args.feierabend:
                     if not args.azk:
                         print("\n{:<30} {:>21}".format(colored("Arbeitszeitkonto", "blue"), colored(
                             db["Arbeitszeitkonto"], "red" if db["Arbeitszeitkonto"][0] == "-" else "green")))
@@ -174,25 +177,29 @@ def main(db=None):
                         continue
                     if m == month or args.verbose:
                         # print(colored("\n{:^48}".format( format_time(date(y, m, 1), "MMMM YYYY", locale="de")), "blue"))
-                        if not args.waz and not args.az:
+                        if not args.waz and not args.az and not args.feierabend:
                             print(colored("\n{:^48}".format(format_date(
                                 datetime.date(y, m, 1), "MMMM YYYY", locale="de")), "blue"))
                         for w, w_data in m_data.items():
                             if w == "Monatssaldo":
-                                if not args.waz and not args.az:
+                                if not args.waz and not args.az and not args.feierabend:
                                     print("\n{:<20}           {:>21}".format(colored("Monatssaldo", "blue"), colored(
                                         w_data, "red" if w_data[0] == "-" else "green")))
                                 continue
                             kw = w
-                            if not args.waz and not args.az:
+                            if not args.waz and not args.az and not args.feierabend:
                                 print("\n", colored("KW {:>2}".format(kw), "blue"), " {:^5} {:^5} {:5} {:^4} {:>5}  {}".format(
                                     "von", "bis", "Pause", "AZ", "Saldo", "Kommentar/AZK"), sep="")
                             for d, d_data in w_data.items():
                                 if d == "Wochenstunden":
                                     if not args.az:
-                                        if not args.waz:
-                                            print("{:<22}         {:>6} {:>14} {:>23}".format(colored("Wochenstunden", "blue"), d_data, colored(
-                                                w_data["Wochensaldo"], "red" if w_data["Wochensaldo"][0] == "-" else "green"), colored(w_data["AZK"], "red" if w_data["AZK"][0] == "-" else "green")))
+                                        if not args.waz and not args.feierabend:
+                                            print("{:<22}         {:>6} {:>14} {:>23}".format(
+                                                colored("Wochenstunden", "blue"),
+                                                d_data,
+                                                colored(
+                                                    w_data["Wochensaldo"], "red" if w_data["Wochensaldo"][0] == "-" else "green"),
+                                                colored(w_data["AZK"], "red" if w_data["AZK"][0] == "-" else "green")))
                                         else:
                                             waz = d_data
                                             waz_diff = w_data["Wochensaldo"]
@@ -200,7 +207,7 @@ def main(db=None):
                                 if d == "Wochensaldo" or d == "AZK":
                                     continue
                                 if not args.waz:
-                                    if not args.az:
+                                    if not args.az and not args.feierabend:
                                         print("{:3}   {:5} {:5} {:^5} {:>4} {:>14}  {}".format(
                                             d,
                                             d_data["start"] if "start" in d_data else "",
@@ -215,10 +222,21 @@ def main(db=None):
                                         taz = d_data["Arbeitszeit"] if "Arbeitszeit" in d_data else 0
 
         if args.waz:
-            #print("{:>5} ({:>4})".format(waz, colored(waz_diff, "red" if waz_diff[0]=="-" else "green")), end="")
-            print("{:>5}".format(waz), end="")
+            # print("{:>5} ({:>4})".format(waz, colored(
+            #     waz_diff, "red" if waz_diff[0] == "-" else "green")), end="")
+            print("{:>5}".format(waz))
         if args.az:
-            print("{:>4}".format(taz), end="")
+            print("{:>4}".format(taz))
+        if args.feierabend:
+            _az = datetime.datetime.strptime(args.work_time, "%H:%M")
+            _taz = datetime.datetime.strptime(taz, "%H:%M")
+            _waz_diff = timeparse(waz_diff)
+            _rest = _az - _taz - datetime.timedelta(minutes=_waz_diff)
+            if _rest.total_seconds() < 0:
+                feierabend = f"und tschüss ({taz})"
+            else:
+                feierabend = f"{(datetime.datetime.now() + _rest).strftime('%H:%M')} / {(datetime.datetime.now() + (_az - _taz)).strftime('%H:%M')}"
+            print(feierabend)
 
         # if not args.verbose:
         #     print("Arbeitszeitkonto:", db["Arbeitszeitkonto"])
