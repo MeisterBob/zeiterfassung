@@ -70,8 +70,6 @@ def main(db=None):
                         help="prints the all stored days for the user instead of only current month")
     parser.add_argument('-q', '--quiet', action='store_true',
                         default=False, help="nur Fehler ausgeben")
-    parser.add_argument('--expand', action='store_false', default=None,
-                        help="expandiert die anderweitig kompakte Ausgabe der erfassten Zeiten")
 
     parser.add_argument('--az', action='store_true',
                         default=None, help="nur heutige AZ anzeigen")
@@ -299,10 +297,10 @@ def update_day(this_day, args, round_up, round_down):
             if args.start is None:
                 print("neue Startzeit muss explizit angegeben werden --start HH:MM")
             else:
-                this_day["start"] = args.start or format_time(
-                    round_down.time())
+                this_day["start"] = args.start or format_time(round_down.time())
         else:
             this_day["start"] = args.start or format_time(round_down.time())
+            this_day["pause"] = 30
     if args.end is not False:
         if "end" in this_day:
             if args.end is None and round_up.time() < datetime.datetime.strptime(this_day["end"], '%H:%M').time():
